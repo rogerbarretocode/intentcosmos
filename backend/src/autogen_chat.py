@@ -2,6 +2,8 @@ import autogen
 from user_proxy_webagent import UserProxyWebAgent
 import asyncio
 
+from websocket_proxy import WebSocketProxy
+
 config_list = [
     {
         "model": "gpt-3.5-turbo",
@@ -42,8 +44,8 @@ llm_config_proxy = {
 #############################################################################################
 # this is where you put your Autogen logic, here I have a simple 2 agents with a function call
 class AutogenChat():
-    def __init__(self, chat_id=None, websocket=None):
-        self.websocket = websocket
+    def __init__(self, chat_id: str, websocket: WebSocketProxy):
+        self.websocket: WebSocketProxy = websocket
         self.chat_id = chat_id
         self.client_sent_queue = asyncio.Queue()
         self.client_receive_queue = asyncio.Queue()

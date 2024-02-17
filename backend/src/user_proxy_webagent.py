@@ -2,7 +2,7 @@ import autogen
 from autogen import Agent, ConversableAgent
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 try:
-    from termcolor import colored
+    from termcolor import colored # type: ignore
 except ImportError:
     def colored(x, *args, **kwargs):
         return x
@@ -100,6 +100,6 @@ class UserProxyWebAgent(autogen.UserProxyAgent):
                 return "exit"
             return reply
         else:
-            return 
+            return None
 
 
