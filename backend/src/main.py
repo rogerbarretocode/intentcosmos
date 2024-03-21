@@ -1,5 +1,5 @@
 from typing import Dict
-from fastapi import Body, FastAPI, WebSocket, Request
+from fastapi import Body, FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
 import uuid
 from autogen_chat import AutogenChat
@@ -11,7 +11,7 @@ import os
 
 from websocket_proxy import WebSocketProxy
 
-_ = load_dotenv(find_dotenv()) # read local .env file
+_ = load_dotenv(find_dotenv())  # read local .env file
 openai.api_key = os.environ['OPENAI_API_KEY']
 # openai.log='debug'
 
@@ -23,57 +23,57 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: list[AutogenChat] = []
 
-    async def connect(self, autogen_chat: AutogenChat):
-        await autogen_chat.websocket.accept()
-        self.active_connections.append(autogen_chat)
+    async def connect(self, autogen_group_chat: AutogenChat):
+        await autogen_group_chat.websocket.accept()
+        self.active_connections.append(autogen_group_chat)
 
-    async def disconnect(self, autogen_chat: AutogenChat):
-        autogen_chat.client_receive_queue.put_nowait("DO_FINISH")
-        print(f"autogen_chat {autogen_chat.chat_id} disconnected")
-        self.active_connections.remove(autogen_chat)
+    async def disconnect(self, autogen_group_chat: AutogenChat):
+        autogen_group_chat.client_receive_queue.put_nowait("DO_FINISH")
+        print(f"autogen_group_chat {autogen_group_chat.chat_id} disconnected")
+        self.active_connections.remove(autogen_group_chat)
 
 
 manager = ConnectionManager()
 
 
-async def send_to_client(autogen_chat: AutogenChat):
+async def send_to_client(autogen_group_chat: AutogenChat):
     """Send message back to the user"""
     while True:
-        reply = await autogen_chat.client_receive_queue.get()
+        reply = await autogen_group_chat.client_receive_queue.get()
         if reply and reply == "DO_FINISH":
-            autogen_chat.client_receive_queue.task_done()
+            autogen_group_chat.client_receive_queue.task_done()
             break
         print(f"Sending to user:", reply)
-        await autogen_chat.websocket.send_text(reply)
-        autogen_chat.client_receive_queue.task_done()
+        await autogen_group_chat.websocket.send_text(reply)
+        autogen_group_chat.client_receive_queue.task_done()
         await asyncio.sleep(0.05)
 
-async def receive_from_client(autogen_chat: AutogenChat):
+async def receive_from_client(autogen_group_chat: AutogenChat):
     """Receive message from the user"""
     while True:
-        data = await autogen_chat.websocket.receive_text()
+        data = await autogen_group_chat.websocket.receive_text()
         print(f"Got data from user: ", data)
         if data and data == "DO_FINISH":
-            await autogen_chat.client_receive_queue.put("DO_FINISH")
-            await autogen_chat.client_sent_queue.put("DO_FINISH")
+            await autogen_group_chat.client_receive_queue.put("DO_FINISH")
+            await autogen_group_chat.client_sent_queue.put("DO_FINISH")
             break
-        await autogen_chat.client_sent_queue.put(data)
+        await autogen_group_chat.client_sent_queue.put(data)
         await asyncio.sleep(0.05)
 
 async def create_agent(chat_id: str, message: str) -> AutogenChat:
-    autogen_chat = None
+    autogen_group_chat = None
     try:
-        autogen_chat = AutogenChat(chat_id=chat_id, websocket=WebSocketProxy())
-        await manager.connect(autogen_chat)
+        autogen_group_chat = AutogenChat(chat_id=chat_id, websocket=WebSocketProxy())
+        await manager.connect(autogen_group_chat)
         data = message
-        future_calls = asyncio.gather(autogen_chat.start(data), send_to_client(autogen_chat), receive_from_client(autogen_chat))
-        return autogen_chat
+        future_calls = asyncio.gather(autogen_group_chat.start(data), send_to_client(autogen_group_chat), receive_from_client(autogen_group_chat))
+        return autogen_group_chat
     except Exception as e:
         print("ERROR", str(e))
         raise
 
 
-def sanitze_message(message: str) -> str:
+def sanitize_message(message: str) -> str:
     _BRKT = " BRKT"
     if message.endswith(_BRKT):
         message = message[:(-1 * len(_BRKT))]
@@ -93,7 +93,7 @@ async def chat(chat_id: str, message: str = Body(..., embed=True)):
 
     await agent.websocket.send_message_to_bot(message)
     message = await agent.websocket.get_message_from_bot()
-    message = sanitze_message(message)
+    message = sanitize_message(message)
     return message
 
 
